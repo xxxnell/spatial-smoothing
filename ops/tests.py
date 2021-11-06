@@ -11,12 +11,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 
+from timm.loss import SoftTargetCrossEntropy, LabelSmoothingCrossEntropy
+
 import ops.meters as meters
 
 
 @torch.no_grad()
 def test(model, n_ff, dataset,
-         cutoffs=(0.0, 0.9), bins=np.linspace(0.0, 1.0, 11), verbose=False, period=10, gpu=True):
+         transform=None, smoothing=0.0,
+         cutoffs=(0.0, 0.9), bins=np.linspace(0.0, 1.0, 11),
+         verbose=False, period=10, gpu=True):
     model.eval()
     model = model.cuda() if gpu else model.cpu()
     xs, ys = next(iter(dataset))
@@ -40,15 +44,30 @@ def test(model, n_ff, dataset,
             xs = xs.cuda()
             ys = ys.cuda()
 
+        if transform is not None:
+            xs, ys_t = transform(xs, ys)
+        else:
+            xs, ys_t = xs, ys
+
+        if len(ys_t.shape) > 1:
+            loss_function = SoftTargetCrossEntropy()
+            ys = torch.max(ys_t, dim=-1)[1]
+        elif smoothing > 0.0:
+            loss_function = LabelSmoothingCrossEntropy(smoothing=smoothing)
+        else:
+            loss_function = nn.CrossEntropyLoss()
+        loss_function = loss_function.cuda() if gpu else loss_function
+
         # A. Predict results
         ys_pred = torch.stack([F.softmax(model(xs), dim=1) for _ in range(n_ff)])
         ys_pred = torch.mean(ys_pred, dim=0)
 
+        ys_t = ys_t.cpu()
         ys = ys.cpu()
         ys_pred = ys_pred.cpu()
 
         # B. Measure Confusion Matrices
-        nll_meter.update(F.nll_loss(torch.log(ys_pred), ys, reduction="none").numpy())
+        nll_meter.update(loss_function(torch.log(ys_pred), ys_t).numpy())
         topk_meter.update(topk(ys.numpy(), ys_pred.numpy()))
         brier_meter.update(brier(ys.numpy(), ys_pred.numpy()))
 
@@ -74,12 +93,13 @@ def test(model, n_ff, dataset,
         acc_bin = [gacc(cm_bin) for cm_bin in cms_bin]
         conf_bin = [conf_acc / (count + 1e-7) for count, conf_acc in zip(count_bin, conf_acc_bin)]
         ece_value = ece(count_bin, acc_bin, conf_bin)
+        ecse_value = ecse(count_bin, acc_bin, conf_bin)
 
         metrics = nll_value, \
                   cutoffs, cms, accs, uncs, ious, freqs, \
                   topk_value, brier_value, \
-                  count_bin, acc_bin, conf_bin, ece_value
-        if verbose and int(step + 1) % period is 0:
+                  count_bin, acc_bin, conf_bin, ece_value, ecse_value
+        if verbose and int(step + 1) % period == 0:
             print("%d Steps, %s" % (int(step + 1), repr_metrics(metrics)))
 
     print(repr_metrics(metrics))
@@ -99,7 +119,7 @@ def repr_metrics(metrics):
     nll_value, \
     cutoffs, cms, accs, uncs, ious, freqs, \
     topk_value, brier_value, \
-    count_bin, acc_bin, conf_bin, ece_value = metrics
+    count_bin, acc_bin, conf_bin, ece_value, ecse_value = metrics
 
     metrics_reprs = [
         "NLL: %.4f" % nll_value,
@@ -111,6 +131,7 @@ def repr_metrics(metrics):
         "Top-5: " + "%.3f %%" % (topk_value * 100),
         "Brier: " + "%.3f" % brier_value,
         "ECE: " + "%.3f %%" % (ece_value * 100),
+        "ECE±: " + "%.3f %%" % (ecse_value * 100),
     ]
 
     return ", ".join(metrics_reprs)
@@ -185,12 +206,12 @@ def save_metrics(metrics_dir, metrics_list):
         nll_value, \
         cutoffs, cms, accs, uncs, ious, freqs, \
         topk_value, brier_value, \
-        count_bin, acc_bin, conf_bin, ece_value = metrics
+        count_bin, acc_bin, conf_bin, ece_value, ecse_value = metrics
 
         metrics_acc.append([
             *keys,
             nll_value, *cutoffs, *accs, *uncs, *ious, *freqs,
-            topk_value, brier_value, ece_value
+            topk_value, brier_value, ece_value, ecse_value
         ])
 
     save_lists(metrics_dir, metrics_acc)
@@ -270,7 +291,7 @@ def caccs(cm):
         if float(np.sum(cm, axis=1)[ii]) == 0:
             acc = 0.0
         else:
-            acc = np.diag(cm)[ii] / float(np.sum(cm, axis=1)[ii])
+            acc = np.diag(cm)[ii] / (float(np.sum(cm, axis=1)[ii]) + 1e-7)
         accs.append(acc)
     return accs
 
@@ -282,27 +303,36 @@ def unconfidence(cm_certain, cm_uncertain):
     inaccurate_certain = np.sum(cm_certain) - np.diag(cm_certain).sum()
     inaccurate_uncertain = np.sum(cm_uncertain) - np.diag(cm_uncertain).sum()
 
-    return inaccurate_uncertain / (inaccurate_certain + inaccurate_uncertain)
+    return inaccurate_uncertain / (inaccurate_certain + inaccurate_uncertain + 1e-7)
 
 
 def frequency(cm_certain, cm_uncertain):
-    return np.sum(cm_certain) / (np.sum(cm_certain) + np.sum(cm_uncertain))
+    return np.sum(cm_certain) / (np.sum(cm_certain) + np.sum(cm_uncertain) + 1e-7)
 
 
 def ece(count_bin, acc_bin, conf_bin):
     count_bin = np.array(count_bin)
     acc_bin = np.array(acc_bin)
     conf_bin = np.array(conf_bin)
-    freq = np.nan_to_num(count_bin / sum(count_bin))
+    freq = np.nan_to_num(count_bin / (sum(count_bin) + 1e-7))
     ece_result = np.sum(np.absolute(acc_bin - conf_bin) * freq)
     return ece_result
+
+
+def ecse(count_bin, acc_bin, conf_bin):
+    count_bin = np.array(count_bin)
+    acc_bin = np.array(acc_bin)
+    conf_bin = np.array(conf_bin)
+    freq = np.nan_to_num(count_bin / (sum(count_bin) + 1e-7))
+    ecse_result = np.sum((conf_bin - acc_bin) * freq)
+    return ecse_result
 
 
 def confidence_histogram(ax, count_bin):
     color, alpha = "tab:green", 0.8
     centers = np.linspace(0.05, 0.95, 10)
     count_bin = np.array(count_bin)
-    freq = count_bin / sum(count_bin)
+    freq = count_bin / (sum(count_bin) + 1e-7)
 
     ax.bar(centers * 100, freq * 100, width=10, color=color, edgecolor="black", alpha=alpha)
     ax.set_xlim(0, 100.0)
@@ -322,9 +352,9 @@ def reliability_diagram(ax, accs_bins, colors="tab:red", mode=0):
 
     ax.plot(guides_x * 100, guides_y * 100, linestyle=guideline_style, color="black")
     for accs_bin, color in zip(accs_bins, colors):
-        if mode is 0:
+        if mode == 0:
             ax.bar(centers * 100, accs_bin * 100, width=10, color=color, edgecolor="black", alpha=alpha)
-        elif mode is 1:
+        elif mode == 1:
             ax.plot(centers * 100, accs_bin * 100, color=color, marker="o", alpha=alpha)
         else:
             raise ValueError("Invalid mode %d." % mode)
