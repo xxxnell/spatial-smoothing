@@ -68,7 +68,7 @@ class Blur(nn.Module):
         self.pad = SamePad(filter_size, pad_mode=pad_mode)
 
         self.filter_proto = torch.tensor(sfilter, dtype=torch.float, requires_grad=False)
-        self.filter = torch.tensordot(self.filter_proto, self.filter_proto, dims=0)
+        self.filter = torch.einsum("i, j -> i j", self.filter_proto, self.filter_proto)
         self.filter = self.filter / torch.sum(self.filter)
         self.filter = self.filter.repeat([in_filters, 1, 1, 1])
         self.filter = torch.nn.Parameter(self.filter, requires_grad=False)
