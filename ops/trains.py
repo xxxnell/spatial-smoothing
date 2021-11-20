@@ -127,7 +127,7 @@ def add_test_metrics(writer, metrics, epoch):
     nll_value, \
     cutoffs, cms, accs, uncs, ious, freqs, \
     topk_value, brier_value, \
-    count_bin, acc_bin, conf_bin, ece_value = metrics
+    count_bin, acc_bin, conf_bin, ece_value, ecse_value = metrics
 
     writer.add_scalar("test/nll", nll_value, global_step=epoch)
     writer.add_scalar("test/acc", accs[0], global_step=epoch)
