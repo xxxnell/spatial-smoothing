@@ -1,8 +1,8 @@
 
 
-# Blurs Make Results Clearer: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness
+# Blur Is an Ensemble: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness
 
-This repository provides a PyTorch implementation of "Blurs Make Results Clearer: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness". In this work, we show that a simple blur operation improves accuracy, uncertainty estimation, and corruption robustness simultaneously, since the blur ensembles spatial information. In particular, **MC dropout incorporating spatial smoothing achieves high predictive performance merely with a handful of ensembles.**
+This repository provides a PyTorch implementation of "Blur Is an Ensemble: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness". In this work, we show that a simple blur operation improves accuracy, uncertainty estimation, and corruption robustness simultaneously, since the blur ensembles spatial information. In particular, **MC dropout incorporating spatial smoothing achieves high predictive performance merely with a handful of ensembles.**
 
 <p align="center">
 <img src="resources/ablation/ablation_animated.gif" align="center" width="90%">
@@ -17,13 +17,13 @@ To help you understand spatial smoothing, we would like to provide an example of
     <td><img src="resources/performance/cifar_100_resnet_18_ece_featured.png" style="width:100%;"></td>
   </tr>
   <tr>
-    <td colspan="3"><img src="resources/performance/legend1.png" style="width:90%;"></td>
+    <td colspan="3" align="center"><img src="resources/performance/legend1.png" style="width:90%;"></td>
   </tr>
 </table>
 
 The figure above shows the predictive performance of ResNet-18 on CIFAR-100. In this figure, MC dropout requires an ensemble size of fifty to achieve high predictive performance. The predictive performance of "MC dropout + spatial smoothing" with an ensemble size of two is comparable to that of the vanilla MC dropout with an ensemble size of fifty. In other words, **"MC dropout + spatial smoothing" is 25× faster than canonical MC dropout** with similar predictive performance. Moreover, spatial smoothing also can be applied to canonical deterministic NNs to improve the performances. It consistently improves the predictive performance on ImageNet. Please refer to the figure 8 in the paper.
 
-We also address global average pooling (GAP), pre-activation, and ReLU6 as special cases of spatial smoothing. Experiments show that they improve not only accuracy but also uncertainty and robustness.
+We also address global average pooling (GAP), pre-activation, and ReLU6 as special cases of spatial smoothing. Experiments show that they improve not only accuracy but also uncertainty and robustness. In other words, *MLP for classification does not overfit  the training dataset* 😱 and GAP is successful because it ensembles feature maps and smoothens the loss landscape to help optimization. 
 
 
 [The official implementation of "How Do Vision Transformers Work?"](https://github.com/xxxnell/how-do-vits-work) is based on this repository. The paper shows that MSA for computer vision (a.k.a. Vision Transformer) is not simply generalized Conv, but rather generalized (trainable) spatial smoothing that complements Conv. Please check it out!
@@ -128,17 +128,17 @@ The figure above shows predictive performance of ResNet-18 on CIFAR-100-C. This 
 
 
 
-## How to apply spatial smoothing to your own model
+## How to Apply Spatial Smoothing to Your Own Model
 
-spatial smoothing consists of three simple components: temperature-scaled tanh which is t * tanh(· / t) ⸺ ReLU ⸺ AvgPool with kernel size of 2 and stride of 1. "t" is a hyperparameter and this value defaults to 10. See the [TanhBlurBlock](models/smoothing_block.py). The module is added before each subsampling layer. For example, see the [ResNet](models/resnet.py).
+Spatial smoothing consists of three simple components: `t * tanh(· / t) – ReLU – AvgPool` where "t" is a hyperparameter and this value defaults to 10. Here, `AvgPool` has a kernel size of 2 and a stride of 1, so it is [a box blur](https://en.wikipedia.org/wiki/Box_blur). See the [TanhBlurBlock](models/smoothing_block.py). The module is added before each subsampling layer. For example, see the [ResNet](models/resnet.py).
 
 <p align="center">
 <img src="resources/diagrams/smooth.png" height=280 align="center">
 </p>
 
-Since most CNN stages end with ReLU, it can be omited from the spatial smoothing layer.
+Since most CNN stages end with `ReLU`, it can be omited from the spatial smoothing layer. For the sake of implementation simplicity, `tanh` can also be omitted at the expense of some predictive performance! 
 
-Above all things, use GAP (instead of MLP, global max pooling, or even CLS token) for classification tasks!
+So to recap, just put `AvgPool` with kernel size of 1 and stride of 1 before subsampling. It's super easy, isn't it? Above all things, use GAP (instead of MLP, global max pooling, or even CLS token) for classification tasks!
 
 
 
@@ -147,8 +147,8 @@ Above all things, use GAP (instead of MLP, global max pooling, or even CLS token
 If you find this useful, please consider citing 📑 the paper and starring 🌟 this repository. Please do not hesitate to contact Namuk Park (email: namuk.park at gmail dot com, twitter: [xxxnell](https://twitter.com/xxxnell)) with any comments or feedback.
 
 ```
-@article{park2021blurs,
-  title={Blurs Make Results Clearer: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness},
+@article{park2021blur,
+  title={Blur Is an Ensemble: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness},
   author={Park, Namuk and Kim, Songkuk},
   journal={arXiv preprint arXiv:2105.12639},
   year={2021}
