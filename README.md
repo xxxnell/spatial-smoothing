@@ -1,8 +1,8 @@
 
 
-# Blur Is an Ensemble: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness
+# Blurs Behaves Like Ensembles: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness
 
-This repository provides a PyTorch implementation of "Blur Is an Ensemble: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness". In this work, we show that a simple blur operation improves accuracy, uncertainty estimation, and corruption robustness simultaneously, since the blur ensembles spatial information. In particular, **MC dropout incorporating spatial smoothing achieves high predictive performance merely with a handful of ensembles.**
+This repository provides a PyTorch implementation of "Blurs Behave Like Ensembles: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness". In this work, we intrpduce ***"spatial ensemble"***. In particular, we show that a simple blur operation improves accuracy, uncertainty estimation, and corruption robustness simultaneously, since the blur ensembles spatial information.**MC dropout incorporating spatial smoothing achieves high predictive performance merely with a handful of ensembles.**
 
 <p align="center">
 <img src="resources/ablation/ablation_animated.gif" align="center" width="90%">
@@ -23,7 +23,7 @@ To help you understand spatial smoothing, we would like to provide an example of
 
 The figure above shows the predictive performance of ResNet-18 on CIFAR-100. In this figure, MC dropout requires an ensemble size of fifty to achieve high predictive performance. The predictive performance of "MC dropout + spatial smoothing" with an ensemble size of two is comparable to that of the vanilla MC dropout with an ensemble size of fifty. In other words, **"MC dropout + spatial smoothing" is 25× faster than canonical MC dropout** with similar predictive performance. Moreover, spatial smoothing also can be applied to canonical deterministic NNs to improve the performances. It consistently improves the predictive performance on ImageNet. Please refer to the figure 8 in the paper.
 
-We also address global average pooling (GAP), pre-activation, and ReLU6 as special cases of spatial smoothing. Experiments show that they improve not only accuracy but also uncertainty and robustness. In other words, *MLP for classification does not overfit  the training dataset* 😱 and GAP is successful because it ensembles feature maps and smoothens the loss landscape to help optimization. 
+We also address global average pooling (GAP), pre-activation, and ReLU6 as special cases of spatial smoothing. Experiments show that they improve not only accuracy but also uncertainty and robustness. In other words, **MLP for classification does not overfit  the training dataset** 😱 and **GAP do not regularize NNs**. GAP is successful because it ensembles feature maps and smoothens the loss landscape to help optimization. 
 
 
 [The official implementation of "How Do Vision Transformers Work?"](https://github.com/xxxnell/how-do-vits-work) is based on this repository. The paper shows that MSA for computer vision (a.k.a. Vision Transformer) is not simply generalized Conv, but rather generalized (trainable) spatial smoothing that complements Conv. Please check it out!
@@ -148,7 +148,7 @@ If you find this useful, please consider citing 📑 the paper and starring 🌟
 
 ```
 @article{park2021blur,
-  title={Blur Is an Ensemble: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness},
+  title={Blurs Behave Like Ensembles: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness},
   author={Park, Namuk and Kim, Songkuk},
   journal={arXiv preprint arXiv:2105.12639},
   year={2021}
