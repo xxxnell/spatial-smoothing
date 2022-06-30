@@ -14,25 +14,36 @@ This repository provides a PyTorch implementation of ["Blurs Behave Like Ensembl
 
 *Left*: *Canonical ensemble* averages multiple NN predictions for one observed data point. Therefore, using N neural networks in the ensemble would requires N times more computational complexity than one NN execution. 
 
-*Middle*: *Temporal smoothing* (["Vector Quantized Bayesian Neural Network Inference for Data Streams (AAAI 2021)"](https://arxiv.org/abs/1907.05911), [code](https://github.com/xxxnell/temporal-smoothing)) executes NN for "the most recent data point'' only once, and complements the result with previously calculated predictions for "other proximate data points (i.e., previous data points)" by exploiting temporal consistency. It may be a promising approach to obtain reliable results efficiently, but it was only applicable to data streams such as video sequences. 
+*Middle*: *Temporal smoothing* (["Vector Quantized Bayesian Neural Network Inference for Data Streams (AAAI 2021)"](https://arxiv.org/abs/1907.05911), [code and summary](https://github.com/xxxnell/temporal-smoothing)) executes NN for "the most recent data point'' only once, and complements the result with previously calculated predictions for "other proximate data points (i.e., previous data points)" by exploiting temporal consistency. It may be a promising approach to obtain reliable results efficiently, but it was only applicable to data streams such as video sequences. 
 
-*Right*: By exploiting the spatial consistency of images, ***we propose spatial smoothing as a method of aggregating nearby feature maps***; this spatial smoothing averages and ensembles neighboring feature map points. In addition, it simultaneously improves accuracy, uncertainty, and robustness as ensembles do. 
+*Right*: By exploiting the spatial consistency of images, ***we propose spatial smoothing as a method of aggregating nearby feature maps***; this spatial smoothing averages and ensembles neighboring feature map points. As a result, it simultaneously improves accuracy, uncertainty, and robustness as ensembles do. 
 
 
 ### II. How Can We Apply Spatial Smoothing to Our Models?
+
+Simply add `AvgPool` with kernel size of 1 and stride of 1 `nn.AvgPool2d(kernel_size=2, stride=1, padding=1)` before the subsampling layers. For example, use four spatial smoothing layers for [ResNet](models/resnet.py). It's super easy, isn't it? 
 
 <p align="center">
 <img src="resources/diagrams/smooth.png" width="75%" align="center">
 </p>
 
-Simply add `AvgPool` with kernel size of 1 and stride of 1 `nn.AvgPool2d(kernel_size=2, stride=1, padding=1)` before the subsampling layers. It's super easy, isn't it? 
+Strictly speaking, spatial smoothing consists of three simple components: `t * tanh(· / t) – ReLU – AvgPool` where `t` is a hyperparameter and this value defaults to 10. Here, `AvgPool` has a kernel size of 2 and a stride of 1 as mentioned above, so it is [a box blur](https://en.wikipedia.org/wiki/Box_blur). See the [TanhBlurBlock](models/smoothing_block.py). The module is added before each subsampling layer. However, since most CNN stages end with `ReLU`, it can be omited from the spatial smoothing layer. Likewise, `tanh` can also be omitted at the expense of some predictive performance. 
 
-Strictly speaking, spatial smoothing consists of three simple components: `t * tanh(· / t) – ReLU – AvgPool` where `t` is a hyperparameter and this value defaults to 10. Here, `AvgPool` has a kernel size of 2 and a stride of 1 as mentioned above, so it is [a box blur](https://en.wikipedia.org/wiki/Box_blur). See the [TanhBlurBlock](models/smoothing_block.py). The module is added before each subsampling layer. For example, we use four spatial smoothing layers for [ResNet](models/resnet.py). However, since most CNN stages end with `ReLU`, it can be omited from the spatial smoothing layer. Likewise, `tanh` can also be omitted at the expense of some predictive performance. 
-
-Above all things, use Global Average Pooling (instead of MLP, global max pooling, or even CLS token) for classification tasks. Global Average Pooling is the most extreme and powerful spatial ensemble. In fact, **MLP for classification does not overfit the training dataset** and **Global Average Pooling does not regularize NNs** (please refer to Table 1).
+Above all things, use Global Average Pooling (instead of MLP, global max pooling, or even CLS token) for classification tasks. Global Average Pooling is the most extreme and powerful spatial ensemble. In fact, **MLP for classification does not overfit the training dataset** and **Global Average Pooling does not regularize NNs** (please refer to Table 1 in the paper).
 
 
-### III. How Does Spatial Smoothing Improve Neural Nets?
+### III. Spatial Smoothing Significantly Improves MC Dropout
+
+One of the major advantages of spatial smoothing is that it significantly improves the performance of MC dropout. MC dropout is a popular method for approximating Bayesian neural nets. However, it is too slow to achieve high predictive performance. Our spatial smoothing address this problem as shown below.
+
+<p align="center">
+<img src="resources/diagrams/performance.png" width="97%" align="center">
+</p>
+
+The figure above shows the predictive performance of ResNet-18 on CIFAR-100. In this figure, MC dropout requires an ensemble size of fifty to achieve high predictive performance, which results in a fiftyfold increase in computational cost. The predictive performance of "MC dropout + spatial smoothing" with an ensemble size of two is comparable to that of the vanilla MC dropout with an ensemble size of fifty. In other words, ***"MC dropout + spatial smoothing" is 25× faster than canonical MC dropout*** with similar predictive performance. Moreover, spatial smoothing also can be applied to canonical deterministic NNs to improve the performances. It consistently improves the predictive performance on ImageNet (+1.0%p in terms of accuracy).
+
+
+### IV. How Does Spatial Smoothing Improve Neural Nets?
 
 A number of evidences suggest that the improvements can be attributed to *(i) the stabilized feature maps* and *(ii) the smoothing of the loss landscape*. 
 
@@ -49,16 +60,6 @@ To demonstrate spatial smoothing stabilizes feature maps, an example representat
 Spatial smoothing also helps NN optimization by smoothing loss landscapes. The figure above shows the loss landscapes of ResNet-18 with MC dropout on CIFAR-100. These loss landscapes fluctuate due to the randomness of MC dropout. 
 
 The *left* of the figure is the loss landscape of the model using MLP classifier instead of GAP classifier. The loss landscape is chaotic and irregular, resulting in hindering and destabilizing NN optimization. The *middle* of the figure is loss landscape of ResNet with GAP classifier. Since GAP ensembles all of the feature map points—yes, GAP is an extreme case of spatial smoothing—it flattens and stabilizes the loss landscape. Likewise, as shown in the *right* of the figure, spatial smoothing also flattens and stabilizes the loss landscape. Accordingly, the predictive performance of GAP classifier with spatial smoothing is the best, and that of MLP classifier is the worst. In conclusion, **averaging feature map points tends to help neural network optimization by smoothing, flattening, and stabilizing the loss landscape.** 
-
-
-
-### IV. Spatial Smoothing Significantly Improves MC Dropout
-
-<p align="center">
-<img src="resources/diagrams/performance.png" width="97%" align="center">
-</p>
-
-The figure above shows the predictive performance of ResNet-18 on CIFAR-100. In this figure, MC dropout requires an ensemble size of fifty to achieve high predictive performance, which results in a fiftyfold increase in computational cost. The predictive performance of "MC dropout + spatial smoothing" with an ensemble size of two is comparable to that of the vanilla MC dropout with an ensemble size of fifty. In other words, ***"MC dropout + spatial smoothing" is 25× faster than canonical MC dropout*** with similar predictive performance. Moreover, spatial smoothing also can be applied to canonical deterministic NNs to improve the performances. It consistently improves the predictive performance on ImageNet (+1.0%p in terms of accuracy).
 
 
 ### V. How Can We Make Spatial Smoothing Trainable?
@@ -131,7 +132,7 @@ The figure above shows predictive performance of ResNet-18 on CIFAR-100-C. This 
 If you find this useful, please consider citing 📑 the paper and starring 🌟 this repository. Please do not hesitate to contact Namuk Park (email: namuk.park at gmail dot com, twitter: [xxxnell](https://twitter.com/xxxnell)) with any comments or feedback.
 
 ```
-@inproceedings{park2021blurs,
+@inproceedings{park2022blurs,
   title={Blurs Behave Like Ensembles: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness},
   author={Park, Namuk and Kim, Songkuk},
   booktitle={International Conference on Machine Learning},
