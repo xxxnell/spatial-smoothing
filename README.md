@@ -2,6 +2,8 @@
 
 # Blurs Behaves Like Ensembles: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness
 
+[[arxiv](https://arxiv.org/abs/2105.12639), [poster](https://github.com/xxxnell/spatial-smoothing-storage/blob/master/resources/blurs_behave_like_ensembles_poster_icml2022.pdf)]
+
 This repository provides a PyTorch implementation of ["Blurs Behave Like Ensembles: Spatial Smoothings to Improve Accuracy, Uncertainty, and Robustness (ICML 2022)"](https://arxiv.org/abs/2105.12639). In this work, we introduce a novel ensemble method, ***"spatial ensemble"***. Spatial ensemble, or spatial smoothing, is an extremely easy-to-implement method and can enjoy the advantages of ensemble without increasing inference time.
 
 
@@ -14,7 +16,7 @@ This repository provides a PyTorch implementation of ["Blurs Behave Like Ensembl
 
 *Left*: *Canonical ensemble* averages multiple NN predictions for one observed data point. Therefore, using N neural networks in the ensemble would requires N times more computational complexity than one NN execution. 
 
-*Middle*: *Temporal smoothing* (["Vector Quantized Bayesian Neural Network Inference for Data Streams (AAAI 2021)"](https://arxiv.org/abs/1907.05911), [code and summary](https://github.com/xxxnell/temporal-smoothing)) executes NN for "the most recent data point'' only once, and complements the result with previously calculated predictions for "other proximate data points (i.e., previous data points)" by exploiting temporal consistency. It may be a promising approach to obtain reliable results efficiently, but it was only applicable to data streams such as video sequences. 
+*Middle*: *Temporal smoothing* (["Vector Quantized Bayesian Neural Network Inference for Data Streams (AAAI 2021)"](https://arxiv.org/abs/1907.05911), [code and summary](https://github.com/xxxnell/temporal-smoothing) :octocat:) executes NN for "the most recent data point'' only once, and complements the result with previously calculated predictions for "other proximate data points (i.e., previous data points)" by exploiting temporal consistency. It may be a promising approach to obtain reliable results efficiently, but it was only applicable to data streams such as video sequences. 
 
 *Right*: By exploiting the spatial consistency of images, ***we propose spatial smoothing as a method of aggregating nearby feature maps***; this spatial smoothing averages and ensembles neighboring feature map points. As a result, it simultaneously improves accuracy, uncertainty, and robustness as ensembles do. 
 
@@ -59,12 +61,22 @@ To demonstrate spatial smoothing stabilizes feature maps, an example representat
 
 Spatial smoothing also helps NN optimization by smoothing loss landscapes. The figure above shows the loss landscapes of ResNet-18 with MC dropout on CIFAR-100. These loss landscapes fluctuate due to the randomness of MC dropout. 
 
-The *left* of the figure is the loss landscape of the model using MLP classifier instead of GAP classifier. The loss landscape is chaotic and irregular, resulting in hindering and destabilizing NN optimization. The *middle* of the figure is loss landscape of ResNet with GAP classifier. Since GAP ensembles all of the feature map points—yes, GAP is an extreme case of spatial smoothing—it flattens and stabilizes the loss landscape. Likewise, as shown in the *right* of the figure, spatial smoothing also flattens and stabilizes the loss landscape. Accordingly, the predictive performance of GAP classifier with spatial smoothing is the best, and that of MLP classifier is the worst. In conclusion, **averaging feature map points tends to help neural network optimization by smoothing, flattening, and stabilizing the loss landscape.** 
+The *left* of the figure is the loss landscape of the model using MLP classifier instead of GAP classifier. The loss landscape is chaotic and irregular, resulting in hindering and destabilizing NN optimization. 
+
+The *middle* of the figure is loss landscape of ResNet with GAP classifier. Since GAP ensembles all of the feature map points—yes, GAP is an extreme case of spatial smoothing—it flattens and stabilizes the loss landscape. 
+
+Likewise, as shown in the *right* of the figure, spatial smoothing also flattens and stabilizes the loss landscape. Accordingly, the predictive performance of GAP classifier with spatial smoothing is the best, and that of MLP classifier is the worst. In conclusion, **averaging feature map points tends to help neural network optimization by smoothing, flattening, and stabilizing the loss landscape.** 
 
 
 ### V. How Can We Make Spatial Smoothing Trainable?
 
-We would like to point out that ***self-attentions for computer vision, also known as Vision Transformers (ViTs), can be deemed as trainable importance-weighted ensembles of feature maps***. Based on this insight, ["How Do Vision Transformers Work? (ICLR 2022 Spotlight)"](https://arxiv.org/abs/2202.06709) ([code and summary](https://github.com/xxxnell/how-do-vits-work)) demonstrates that self-attention also helps NN optimization by stabilizing feature maps and flattening loss landscapes. These suggest that self-attentions are not simply generalized Conv, but rather generalized (trainable) spatial smoothing that complement Conv. Please check it out!
+In summary, spatial smoothing significantly improves neural nets, and has the following properties:
+
+<p align="center">
+<img src="resources/summary.png" align="center" width="70%">
+</p>
+
+How can we make spatial smoothing trainable to further improve performance? We would like to point out that ***self-attentions for computer vision, also known as Vision Transformers (ViTs), can be deemed as trainable importance-weighted ensembles of feature maps***. Based on this insight, ["How Do Vision Transformers Work? (ICLR 2022 Spotlight)"](https://arxiv.org/abs/2202.06709) ([code and summary](https://github.com/xxxnell/how-do-vits-work) :octocat:) demonstrates that self-attentions have the properties of spatial smoothing; they also helps NN optimization by stabilizing feature maps and flattening loss landscapes. These suggest that self-attentions are not simply generalized Conv, but rather generalized (trainable) spatial smoothing that complement Conv. Please check it out!
 
 
 
