@@ -50,7 +50,7 @@ The figure above shows the predictive performance of ResNet-18 on CIFAR-100. In 
 A number of evidences suggest that the improvements can be attributed to *(i) the stabilized feature maps* and *(ii) the smoothing of the loss landscape*. 
 
 <p align="center">
-<img src="resources/ablation/ablation_animated.gif" align="center" width="78%">
+<img src="resources/ablation/ablation_animated.gif" align="center" width="84%">
 </p>
 
 To demonstrate spatial smoothing stabilizes feature maps, an example representations of ResNet-50 with MC dropout randomness are provided above. This figure shows the 2× downsampled feature maps for each stage of vanilla MC dropout and MC dropout with spatial smoothing. They are the input volumes of the next stage since ResNet starts the stage by reducing the spatial dimension. In this example, the feature maps vary due to randomness from MC dropout. Spatial smoothing results in better performance by reducing the randomness and stabilizing the feature maps at every stage. 
